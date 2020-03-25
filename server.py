@@ -2,6 +2,8 @@
 job requests from clients, deploys and runs them on the target sbRIO, and
 returns the results.
 
+Usage: python3 server.py [SBRIO PASSWORD] [SERVER IP]
+
 Certain inflexible parsing code expects a particular format for the output of
 grep and ps, which may vary with Linux flavor. The following scenarios should be
 tested before deploying in production:
@@ -20,6 +22,12 @@ returned to the client with no uncaught errors by the client or server. Job
 binaries temporarily saved to the server machine should have been automatically
 removed. Job binaries saved to sbRIOs should have been automatically removed,
 and timed-out job processes should have been automatically killed.
+
+Other notes:
+
+  - Certain actions by job binaries can defy Paramiko's SSH timeout. Instances
+    of this observed so far:
+      * Job attempts to manipulate STDIN_FILENO via ioctl().
 """
 import os
 import paramiko
@@ -284,19 +292,23 @@ class JobHandler(threading.Thread):
 
 if __name__ == "__main__":
     # Get sbRIO password from cmdline.
-    if len(sys.argv) != 2:
-        print("Usage: python3 server.py [SBRIO PASSWORD]")
+    if len(sys.argv) != 3:
+        print("Usage: python3 server.py [SBRIO PASSWORD] [SERVER IP]")
         exit()
     sbrio_password = sys.argv[1]
+
+    # Parse server IP.
+    chunks = sys.argv[2].split(':')
+    server_addr = chunks[0], int(chunks[1])
 
     vrio.printctr("[VERY REMOTE IO]", ' ')
     vrio.printctr("Science spites mother nature once again.", ' ')
 
     # Create, bind, and listen on server socket.
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(vrio.SERVER_ADDR)
+    sock.bind(server_addr)
     sock.listen(1)
-    vrio.log("main", "Opened server on %s:%s. Listening..." % vrio.SERVER_ADDR)
+    vrio.log("main", "Opened server on %s:%s. Listening..." % server_addr)
 
     # Wait for client connections.
     while True:

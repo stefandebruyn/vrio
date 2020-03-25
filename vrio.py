@@ -6,16 +6,11 @@ import struct
 import threading
 
 
-# VRIO server address.
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 8080
-SERVER_ADDR = (SERVER_IP, SERVER_PORT)
-
 # sbRIO login username. Password is passed to server by cmdline.
-SBRIO_USERNAME = 'stefan'         # 'admin'
+SBRIO_USERNAME = 'avsw'         # 'admin'
 
 # Parent folder on sbRIO of binaries.
-SBRIO_SCP_DEST = '/home/stefan/'  # '/home/admin/FlightSoftware'
+SBRIO_SCP_DEST = '/home/avsw/'  # '/home/admin/FlightSoftware'
 
 # Maximum runtime of a job in seconds.
 SBRIO_JOB_TIMEOUT_S = 60

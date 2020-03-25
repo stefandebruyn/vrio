@@ -2,7 +2,7 @@
 sbRIO IP are sent to the VRIO server, which deploys the binary to the requested
 sbRIO and returns the results.
 
-Usage: python3 client.py [SBRIO IP] [PATH TO BINARY]
+Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [SERVER IP]
 """
 import os
 import socket
@@ -13,8 +13,8 @@ import vrio
 
 if __name__ == "__main__":
     # Validate usage.
-    if len(sys.argv) != 3:
-        print("Usage: python3 client.py [SBRIO IP] [PATH TO BINARY]")
+    if len(sys.argv) != 4:
+        print("Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [SERVER IP]")
         exit()
 
     # Validate requested sbRIO.
@@ -31,12 +31,16 @@ if __name__ == "__main__":
         print("Could not find file: %s" % job_binary_path)
         exit()
 
+    # Parse server IP.
+    chunks = sys.argv[3].split(':')
+    server_addr = chunks[0], int(chunks[1])
+
     print("Targeting sbRIO %s with file %s" % (sys.argv[1], job_binary_path))
 
     # Attempt connection to server.
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("Connecting to VRIO server at %s:%s..." % vrio.SERVER_ADDR)
-    sock.connect(vrio.SERVER_ADDR)
+    print("Connecting to VRIO server at %s:%s..." % server_addr)
+    sock.connect(server_addr)
 
     try:
         # Build and send job request packet.
