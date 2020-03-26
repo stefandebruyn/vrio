@@ -21,12 +21,21 @@ SBRIO_JOB_TIMEOUT_S = 60
 # Job binary extension.
 SBRIO_JOB_BIN_EXT = '.job'
 
+# Filename of job count log.
+SERVER_JOB_COUNT_FNAME = 'vrio-job-counts.txt'
+
 # Map of sbRIO IDs to static IPs.
 id_to_sbrio = {}
 ip_to_sbrio = {}
 
+# Map of usernames to number of jobs successfully processed.
+user_job_counts = {}
+
 # Lock for synchronizing prints by job handling threads.
 print_lock = threading.Lock()
+
+# Lock for synchronizing access to job count map.
+job_count_lock = threading.Lock()
 
 
 class UnknownSbrioError(Exception):
@@ -242,11 +251,61 @@ def log(id, dat):
     dat : str
         string to log
     """
-    dt = datetime.datetime.now()
     print_lock.acquire()
-    print("[%s // %s] %s" % (str(dt), id, dat))
+
+    # Get timestamp.
+    dt = datetime.datetime.now()
+
+    # Log to stdout.
+    line = "[%s // %s] %s" % (str(dt), id, dat)
+    print(line)
+
+    # Log to log file.
+    with open("vrio-session-%s.txt" % vrio_session_id, 'a') as f:
+        f.write(line + '\n')
+
     print_lock.release()
+
+
+def count_job(user):
+    """Synchronized function for incrementing a user's job count and logging the
+    map to disk.
+
+    Parameters
+    ----------
+    user : str
+        username
+    """
+    job_count_lock.acquire()
+
+    # Increment user's job counter.
+    if user not in user_job_counts:
+        user_job_counts[user] = 1
+    else:
+        user_job_counts[user] += 1
+
+    # Save map to disk.
+    with open(SERVER_JOB_COUNT_FNAME, 'w') as f:
+        for user in user_job_counts:
+            f.write(user + ' ' + str(user_job_counts[user]) + '\n')
+
+    job_count_lock.release()
+
+
+def load_job_counts():
+    """Loads the job count map from disk.
+    """
+    with open(SERVER_JOB_COUNT_FNAME, 'r') as f:
+        for line in f.readlines():
+            chunks = line.strip().split(' ')
+            user, count = chunks[0], int(chunks[1])
+            user_job_counts[user] = count
 
 
 # Load sbRIO information once module loads.
 load_sbrio_info()
+
+# Generate unique session ID. Used for server logging.
+vrio_session_id = str(datetime.datetime.now()).replace(' ', '-') \
+                                              .replace(':', '-') \
+                                              .replace('.', '-')

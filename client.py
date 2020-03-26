@@ -30,7 +30,7 @@ if __name__ == "__main__":
     if sys.argv[1] not in vrio.ip_to_sbrio:
         print("Unknown sbRIO %s" % sys.argv[1] + ". Known IPs:")
         for ip in vrio.ip_to_sbrio.keys():
-            print("  %s" % ip)
+            print(ip)
         exit()
     sbrio_id = vrio.ip_to_sbrio[sys.argv[1]].id()
     job_binary_path = sys.argv[2]
@@ -64,8 +64,9 @@ if __name__ == "__main__":
             print(status_plaintext)
             raise vrio.JobRejectedError()
         
-        # Acknowledge receipt of sbRIO status and wait for job results.
-        sock.sendall(vrio.pack(b''))  # Empty packet serves as ack.
+        # Acknowledge receipt of sbRIO status and wait for job results. This
+        # packet contains the client's local username for logging purposes.
+        sock.sendall(vrio.pack(bytes(os.getlogin(), 'utf-8')))
         print(status_plaintext + ". Waiting for results...")
         packet_results = vrio.recv_payload(sock)
 

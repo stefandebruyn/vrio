@@ -206,8 +206,9 @@ class JobHandler(threading.Thread):
             packet_job_ack = vrio.pack(bytes(str_status, 'utf-8'))
             self.sock.sendall(packet_job_ack)
 
-            # Wait for empty ack packet before starting job.
-            vrio.recv_payload(self.sock)
+            # Wait for ack packet with username before starting job.
+            job_user = vrio.recv_payload(self.sock).decode('utf-8')
+            vrio.log(self.id, "Identified user: %s" % job_user)
 
             # Save job binary.
             job_bin = open(job_bin_fname, "wb")
@@ -228,9 +229,17 @@ class JobHandler(threading.Thread):
                 self. scp_job(sbrio.ip(), vrio.SBRIO_USERNAME, self.pw, 20,
                               job_bin_qpath, sbrio_job_qpath)
                 vrio.log(self.id, "Job copied. Running...")
+
+            except TimeoutError as e:
+                # Target sbRIO was unreachable.
+                sbrio.release()
+                packet_err = vrio.pack(bytes("Requested sbRIO was unreachable. Is it plugged in?",
+                                             'utf-8'))
+                self.sock.sendall(packet_err)
+                raise vrio.JobScpError(str(e))
             
             except Exception as e:
-                # Something went wrong; release sbRIO and end connection.
+                # Something else went wrong; release sbRIO and end connection.
                 sbrio.release()
                 packet_err = vrio.pack(bytes("An error occurred while SCPing the job binary.",
                                              'utf-8'))
@@ -251,6 +260,7 @@ class JobHandler(threading.Thread):
 
             sbrio.release()
             vrio.log(self.id, "Job done, sbRIO released.")
+            vrio.count_job(job_user)
 
             # Return results to client.
             packet_results = vrio.pack(b_out + b_err)
@@ -301,6 +311,9 @@ if __name__ == "__main__":
     chunks = sys.argv[2].split(':')
     server_addr = chunks[0], int(chunks[1])
 
+    # Load job counts.
+    vrio.load_job_counts()
+
     vrio.printctr("[VERY REMOTE IO]", ' ')
     vrio.printctr("Science spites mother nature once again.", ' ')
 
@@ -314,5 +327,6 @@ if __name__ == "__main__":
     while True:
         # Dispatch handler thread to service request.
         conn, client_addr = sock.accept()
+        conn.settimeout(60)
         handler = JobHandler(client_addr, conn, sbrio_password)
         handler.start()
