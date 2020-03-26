@@ -295,6 +295,10 @@ def count_job(user):
 def load_job_counts():
     """Loads the job count map from disk.
     """
+    # Creates the file if it doesn't exist.
+    open(SERVER_JOB_COUNT_FNAME, 'a').close()
+
+    # Populate map with file contents.
     with open(SERVER_JOB_COUNT_FNAME, 'r') as f:
         for line in f.readlines():
             chunks = line.strip().split(' ')
