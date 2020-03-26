@@ -6,6 +6,9 @@ import struct
 import threading
 
 
+# File created by user with VRIO server address.
+SERVER_ADDR_FNAME = 'serveraddr.txt'
+
 # sbRIO login username. Password is passed to server by cmdline.
 SBRIO_USERNAME = 'avsw'         # 'admin'
 
