@@ -10,10 +10,10 @@ import threading
 SERVER_ADDR_FNAME = 'serveraddr.txt'
 
 # sbRIO login username. Password is passed to server by cmdline.
-SBRIO_USERNAME = 'avsw'         # 'admin'
+SBRIO_USERNAME = 'stefan'         # 'admin'
 
 # Parent folder on sbRIO of binaries.
-SBRIO_SCP_DEST = '/home/avsw/'  # '/home/admin/FlightSoftware'
+SBRIO_SCP_DEST = '/home/stefan/'  # '/home/admin/FlightSoftware'
 
 # Maximum runtime of a job in seconds.
 SBRIO_JOB_TIMEOUT_S = 60
@@ -27,6 +27,10 @@ SERVER_JOB_COUNT_FNAME = 'vrio-job-counts.txt'
 # Map of sbRIO IDs to static IPs.
 id_to_sbrio = {}
 ip_to_sbrio = {}
+
+# Special sbRIO IPs.
+SBRIO_IP_ANY = "any"
+special_sbrio_ips = [SBRIO_IP_ANY]
 
 # Map of usernames to number of jobs successfully processed.
 user_job_counts = {}
@@ -149,12 +153,13 @@ def load_sbrio_info():
     """Populates sbRIO ID-IP global maps.
     """
     with open("sbrios.txt", "r") as f:
+        idx = 0
         for line in f.readlines():
-            pair = [val.strip() for val in line.split(",")]
-            bid, ip = int(pair[0]), pair[1]
-            rio = SbRio(bid, ip)
-            id_to_sbrio[bid] = rio
+            ip = line.strip()
+            rio = SbRio(idx, ip)
+            id_to_sbrio[idx] = rio
             ip_to_sbrio[ip] =  rio
+            idx += 1
 
 
 def pack(data):

@@ -3,6 +3,8 @@ sbRIO IP are sent to the VRIO server, which deploys the binary to the requested
 sbRIO and returns the results.
 
 Usage: python3 client.py [SBRIO IP] [PATH TO BINARY]
+
+A value of "any" for sbRIO IP will target the sbRIO that is least contended.
 """
 import os
 import socket
@@ -28,7 +30,7 @@ if __name__ == "__main__":
 
     # Validate requested sbRIO.
     if sys.argv[1] not in vrio.ip_to_sbrio:
-        print("Unknown sbRIO %s" % sys.argv[1] + ". Known IPs:")
+        print("Unknown sbRIO %s" % sys.argv[1] + ". Valid arguments:")
         for ip in vrio.ip_to_sbrio.keys():
             print(ip)
         exit()
@@ -40,7 +42,10 @@ if __name__ == "__main__":
         print("Could not find file: %s" % job_binary_path)
         exit()
 
-    print("Targeting sbRIO %s with file %s" % (sys.argv[1], job_binary_path))
+    sbrio_str = "%s sbRIO" if sys.argv[1] == vrio.SBRIO_IP_ANY else \
+                "sbRIO %s"
+    print(("Targeting " + sbrio_str + " with file %s") % \
+          (sys.argv[1], job_binary_path))
 
     # Attempt connection to server.
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

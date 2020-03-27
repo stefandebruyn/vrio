@@ -194,12 +194,30 @@ class JobHandler(threading.Thread):
                 self.sock.sendall(packet_job_deny)
                 raise vrio.UnknownSbrioError
 
-            # Check requested sbRIO status.
+            # Look up the requested sbRIO resource. If any was requested,
+            # identify the one with the least load.
             sbrio = vrio.id_to_sbrio[bid]
+            if sbrio.ip() == vrio.SBRIO_IP_ANY:
+                vrio.log(self.id, "Client asked for any sbRIO. Identifying least load...")
+                # Create list of all sbRIOs.
+                sbrio_opts = [sb for sb in vrio.id_to_sbrio.values() if \
+                              sb.ip() not in vrio.special_sbrio_ips]
+                # Identify least load, where load = jobs queued + in use.
+                best_sbrio = None
+                best_sbrio_load = -1
+                for sb in sbrio_opts:
+                    load = sb.jobs_waiting() + sb.in_use()
+                    if best_sbrio is None or load < best_sbrio_load:
+                        best_sbrio = sb
+                        best_sbrio_load = load
+                # Reassign target sbRIO.
+                sbrio = best_sbrio
+
+            # Check target sbRIO status.
             str_use = ("not " if not sbrio.in_use() else "") + "in use"
             str_status = "sbRIO %s is %s and has %s other job(s) queued. Job ID: %s" % \
                          (sbrio.ip(), str_use, sbrio.jobs_waiting(), self.id)
-            vrio.log(self.id, "Client is requesting sbRIO at %s; in use: %s, queued: %s" % \
+            vrio.log(self.id, "Job is targeting sbRIO at %s; in use: %s, queued: %s" % \
                      (sbrio.ip(), sbrio.in_use(), sbrio.jobs_waiting()))
 
             # Send client sbRIO status.
