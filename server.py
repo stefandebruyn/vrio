@@ -42,6 +42,9 @@ import vrio
 # Global job counter used to assign job IDs.
 job_counter = 0
 
+# Lock for synchronizing edits to global job counter.
+job_counter_lock = threading.Lock()
+
 
 class JobHandler(threading.Thread):
     """Handling thread for a client job request.
@@ -62,9 +65,12 @@ class JobHandler(threading.Thread):
         self.sock = sock
         self.pw = pw
         # Increment global job counter and assign ID.
-        global job_counter
-        job_counter += 1
-        self.id = "{:04d}".format(job_counter - 1)
+        global job_counter, job_counter_lock
+        c = None
+        with job_counter_lock:
+            job_counter += 1
+            c = job_counter
+        self.id = "{:04d}".format(c - 1)
 
     def run_job(self, host, user, pw, job_bin_path):
         """Runs a binary on a remote target and returns the output.
@@ -127,9 +133,9 @@ class JobHandler(threading.Thread):
         # Remove job binary.
         ssh.exec_command('rm ' + job_bin_path)
 
-    # Close connection and conclude.
-    ssh.close()
-    return b_out, b_err
+        # Close connection and conclude.
+        ssh.close()
+        return b_out, b_err
 
     def scp_job(self, host, user, pw, port, src, dest):
         """SCPs a job binary to a remote target.
@@ -275,6 +281,7 @@ class JobHandler(threading.Thread):
                 self.sock.sendall(packet_err)
                 raise vrio.JobRunError(str(e))
 
+            # Job done, either ran ok or timed out. Release sbRIO.
             sbrio.release()
             vrio.log(self.id, "Job done, sbRIO released.")
             vrio.count_job(job_user)

@@ -97,7 +97,8 @@ class SbRio():
         self._id = id
         self._ip = ip
         self._waiters = 0
-        self._lock = threading.Lock()
+        self._job_lock = threading.Lock()  # Lock for running jobs.
+        self._var_lock = threading.Lock()  # Lock for reading/writing members.
 
     def id(self):
         """
@@ -124,7 +125,10 @@ class SbRio():
         int
             number of jobs waiting to run on sbRIO
         """
-        return self._waiters
+        w = None
+        with self._var_lock:
+            w = self._waiters
+        return w
 
     def in_use(self):
         """
@@ -133,20 +137,27 @@ class SbRio():
         bool
             if a job is currently running on the sbRIO
         """
-        return self._lock.locked()
+        return self._job_lock.locked()
     
     def acquire(self):
         """Used by a job handling thread to acquire an sbRIO. Blocks until
         the sbRIO is not busy.
         """
-        self._waiters += 1
-        self._lock.acquire()
-        self._waiters -= 1
+        # Increment waiters in thread-safe manner.
+        with self._var_lock:
+            self._waiters += 1
+
+        # Acquire job lock.
+        self._job_lock.acquire()
+
+        # Decrement waiters in thread-safe manner.
+        with self._var_lock:
+            self._waiters -= 1
 
     def release(self):
         """Used by a job handing thread to yield control of the sbRIO.
         """
-        self._lock.release()
+        self._job_lock.release()
 
 
 def load_sbrio_info():
