@@ -322,13 +322,13 @@ class JobHandler(threading.Thread):
 
 
 if __name__ == "__main__":
-    # Get sbRIO password from cmdline.
+    # Validate usage.
     if len(sys.argv) != 3:
         print("Usage: python3 server.py [SBRIO PASSWORD] [SERVER IP]")
         exit()
-    sbrio_password = sys.argv[1]
 
-    # Parse server IP.
+    # Parse cmdline arguments.
+    sbrio_password = sys.argv[1]
     chunks = sys.argv[2].split(':')
     server_addr = chunks[0], int(chunks[1])
 

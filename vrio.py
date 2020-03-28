@@ -24,7 +24,7 @@ SBRIO_JOB_BIN_EXT = '.job'
 # Filename of job count log.
 SERVER_JOB_COUNT_FNAME = 'vrio-job-counts.txt'
 
-# Map of sbRIO IDs to static IPs.
+# Map of sbRIO IDs and IPs to resource objects.
 id_to_sbrio = {}
 ip_to_sbrio = {}
 
@@ -161,7 +161,7 @@ class SbRio():
 
 
 def load_sbrio_info():
-    """Populates sbRIO ID-IP global maps.
+    """Populates sbRIO ID/IP global maps.
     """
     with open("sbrios.txt", "r") as f:
         idx = 0
@@ -267,13 +267,12 @@ def log(id, dat):
     dat : str
         string to log
     """
-    print_lock.acquire()
-
     # Get timestamp.
     dt = datetime.datetime.now()
 
     # Log to stdout.
     line = "[%s // %s] %s" % (str(dt), id, dat)
+    print_lock.acquire()
     print(line)
 
     # Log to log file.
@@ -311,7 +310,7 @@ def count_job(user):
 def load_job_counts():
     """Loads the job count map from disk.
     """
-    # Creates the file if it doesn't exist.
+    # Create the file if it doesn't exist.
     open(SERVER_JOB_COUNT_FNAME, 'a').close()
 
     # Populate map with file contents.
