@@ -27,8 +27,10 @@ Other notes:
     of this observed so far:
       * Job attempts to manipulate STDIN_FILENO via ioctl().
   - Paramiko appears to capture the stdout and stderr of the program executed
-    over SSH, rather than the shell itself. Consequently, segfaults will not
-    appear in the returned output.
+    over SSH rather than the shell itself. Consequently, segfaults will not
+    appear in the returned output. Passing get_pty=True to exec_command to
+    request a pseudo-terminal from the remote target seems like it would fix
+    this, but it doesn't.
 """
 import os
 import paramiko
