@@ -5,9 +5,10 @@ sbRIO and returns the results.
 Requires a "serveraddr.txt" file in the same directory containing the ip:port
 server address.
 
-Usage: python3 client.py [SBRIO IP] [PATH TO BINARY]
+Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [BINARY ARGS]
 
 A value of "any" for sbRIO IP will target the sbRIO that is least contended.
+This requires that all sbRIOs be online.
 """
 import os
 import socket
@@ -18,8 +19,8 @@ import vrio
 
 if __name__ == "__main__":
     # Validate usage.
-    if len(sys.argv) != 3:
-        print("Usage: python3 client.py [SBRIO IP] [PATH TO BINARY]")
+    if len(sys.argv) < 3:
+        print("Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [BINARY ARGS]")
         exit()
 
     # Get server address from file.
@@ -73,8 +74,13 @@ if __name__ == "__main__":
             raise vrio.JobRejectedError()
         
         # Acknowledge receipt of sbRIO status and wait for job results. This
-        # packet contains the client's local username for logging purposes.
-        sock.sendall(vrio.pack(bytes(os.getlogin(), 'utf-8')))
+        # packet contains the client's local username (for logging) and cmdline
+        # args for the binary.
+        subpacket_user = vrio.pack(bytes(os.getlogin(), 'utf-8'))
+        cmdline_args = ','.join(sys.argv[4:])
+        subpacket_cmdline = vrio.pack(bytes(cmdline_args, 'utf-8'))
+        packet_ack = vrio.pack(subpacket_user + subpacket_cmdline)
+        sock.sendall(packet_ack)
         print(status_plaintext + ". Waiting for results...")
         packet_results = vrio.recv_payload(sock)
 
@@ -87,6 +93,9 @@ if __name__ == "__main__":
         # Move on; error already printed.
         pass
 
-    finally:
-        # Close connection.
-        sock.close()
+    except Exception as e:
+        # Something else went wrong.
+        print(str(e))
+
+    # Close connection.
+    sock.close()

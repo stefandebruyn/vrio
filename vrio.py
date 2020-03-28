@@ -10,7 +10,7 @@ import threading
 SERVER_ADDR_FNAME = 'serveraddr.txt'
 
 # sbRIO login username. Password is passed to server by cmdline.
-SBRIO_USERNAME = 'stefan'         # 'admin'
+SBRIO_USERNAME = 'stefan'  # 'admin'
 
 # Parent folder on sbRIO of binaries.
 SBRIO_SCP_DEST = '/home/stefan/'  # '/home/admin/FlightSoftware'

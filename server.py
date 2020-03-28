@@ -26,6 +26,9 @@ Other notes:
   - Certain actions by job binaries can defy Paramiko's SSH timeout. Instances
     of this observed so far:
       * Job attempts to manipulate STDIN_FILENO via ioctl().
+  - Paramiko appears to capture the stdout and stderr of the program executed
+    over SSH, rather than the shell itself. Consequently, segfaults will not
+    appear in the returned output.
 """
 import os
 import paramiko
@@ -70,7 +73,7 @@ class JobHandler(threading.Thread):
             c = job_counter
         self.id = "{:04d}".format(c - 1)
 
-    def run_job(self, host, user, pw, job_bin_path):
+    def run_job(self, host, user, pw, job_bin_path, cmdline_args):
         """Runs a binary on a remote target and returns the output.
 
         Parameters
@@ -81,8 +84,10 @@ class JobHandler(threading.Thread):
             username
         pw : str
             password
-        job_bin_path
+        job_bin_path : str
             fully-qualified path to binary
+        cmdline_args : list
+            list of str cmdline args for binary
 
         Return
         ------
@@ -98,8 +103,9 @@ class JobHandler(threading.Thread):
         b_err = bytes()
         try:
             # Run job.
+            cmd = job_bin_path + ' ' + ' '.join(cmdline_args)
             stdin, stdout, stderr = ssh.exec_command(
-                job_bin_path, timeout=vrio.SBRIO_JOB_TIMEOUT_S)
+                cmd, timeout=vrio.SBRIO_JOB_TIMEOUT_S, get_pty=True)
             b_out = stdout.read()
             b_err = stderr.read()
 
@@ -227,9 +233,23 @@ class JobHandler(threading.Thread):
             packet_job_ack = vrio.pack(bytes(str_status, 'utf-8'))
             self.sock.sendall(packet_job_ack)
 
-            # Wait for ack packet with username before starting job.
-            job_user = vrio.recv_payload(self.sock).decode('utf-8')
+            # Wait for ack packet with username and cmdline args before starting
+            # job.
+            packet_goahead = vrio.recv_payload(self.sock)
+            subpacket_user_size = struct.unpack("I", packet_goahead[:4])[0]
+            subpacket_user = packet_goahead[4:4+subpacket_user_size]
+            subpacket_cmdline_size = struct.unpack(
+                "I", packet_goahead[4+subpacket_user_size:
+                                    8+subpacket_user_size])[0]
+            subpacket_cmdline = packet_goahead[8+subpacket_user_size:
+                                               8+subpacket_user_size + \
+                                               subpacket_cmdline_size]
+            job_user = subpacket_user.decode('utf-8')
+            cmdline_args = subpacket_cmdline.decode('utf-8').split(',')
+
             vrio.log(self.id, "Identified user: %s" % job_user)
+            vrio.log(self.id, "Parsed cmdline args: [%s]" % \
+                              ', '.join(cmdline_args))
 
             # Save job binary.
             job_bin = open(job_bin_fname, "wb")
@@ -270,7 +290,8 @@ class JobHandler(threading.Thread):
             try:
                 # Run job and capture output.
                 b_out, b_err = self.run_job(sbrio.ip(), vrio.SBRIO_USERNAME,
-                                            self.pw, sbrio_job_qpath)
+                                            self.pw, sbrio_job_qpath,
+                                            cmdline_args)
             except Exception as e:
                 # Something went wrong; release sbRIO and end connection.
                 sbrio.release()
