@@ -109,28 +109,27 @@ class JobHandler(threading.Thread):
             vrio.log(self.id, "Error running job: %s" % str(e))
             b_err = bytes(str(e), 'utf-8')
 
-        finally:
-            # Kill job process if still running.
-            stdin, stdout, stderr = ssh.exec_command(
-                "ps -ef | grep %s" % self.id + vrio.SBRIO_JOB_BIN_EXT)
-            grep = stdout.read().decode('utf-8')
-            pid = None
-            for line in grep.split('\n'):
-                if self.id in line and "grep" not in line:
-                    pid = line.split()[1]  # PID printed in 2nd col.
-                    vrio.log(self.id, "Identified job still running with PID %s. Attempting to kill..." % \
-                                      pid)
-                    break
-            if pid is not None:
-                ssh.exec_command("kill -9 %s" % pid)
-                vrio.log(self.id, "Kill signal sent.")
+        # Kill job process if still running.
+        stdin, stdout, stderr = ssh.exec_command(
+            "ps -ef | grep %s" % self.id + vrio.SBRIO_JOB_BIN_EXT)
+        grep = stdout.read().decode('utf-8')
+        pid = None
+        for line in grep.split('\n'):
+            if self.id in line and "grep" not in line:
+                pid = line.split()[1]  # PID printed in 2nd col.
+                vrio.log(self.id, "Identified job still running with PID %s. Attempting to kill..." % \
+                                    pid)
+                break
+        if pid is not None:
+            ssh.exec_command("kill -9 %s" % pid)
+            vrio.log(self.id, "Kill signal sent.")
 
-            # Remove job binary.
-            ssh.exec_command('rm ' + job_bin_path)
+        # Remove job binary.
+        ssh.exec_command('rm ' + job_bin_path)
 
-        # Close connection and conclude.
-        ssh.close()
-        return b_out, b_err
+    # Close connection and conclude.
+    ssh.close()
+    return b_out, b_err
 
     def scp_job(self, host, user, pw, port, src, dest):
         """SCPs a job binary to a remote target.
@@ -304,18 +303,17 @@ class JobHandler(threading.Thread):
                                          'utf-8'))
             self.sock.sendall(packet_err)
 
-        finally:
-            # Clean up local job binary if one was saved.
-            try:
-                if os.path.exists(job_bin_fname):
-                    os.remove(job_bin_fname)
-            except Exception:
-                vrio.log(self.id, "WARNING: Failed to delete job binary %s" \
-                         % job_bin_name)
+        # Clean up local job binary if one was saved.
+        try:
+            if os.path.exists(job_bin_fname):
+                os.remove(job_bin_fname)
+        except Exception:
+            vrio.log(self.id, "WARNING: Failed to delete job binary %s" \
+                        % job_bin_name)
 
-            # Close connection.
-            self.sock.close()
-            vrio.log(self.id, "Connection closed.")
+        # Close connection.
+        self.sock.close()
+        vrio.log(self.id, "Connection closed.")
 
 
 if __name__ == "__main__":
