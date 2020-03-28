@@ -2,6 +2,9 @@
 sbRIO IP are sent to the VRIO server, which deploys the binary to the requested
 sbRIO and returns the results.
 
+Requires a "serveraddr.txt" file in the same directory containing the ip:port
+server address.
+
 Usage: python3 client.py [SBRIO IP] [PATH TO BINARY]
 
 A value of "any" for sbRIO IP will target the sbRIO that is least contended.

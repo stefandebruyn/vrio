@@ -12,10 +12,8 @@ tested before deploying in production:
 
   #2 Send a job that exceeds the runtime limit to an sbRIO with no contention.
 
-  #3 Send a job that runs indefinitely to an sbRIO with no contention.
-
-  #4 Perform 1-3 with an sbRIO that is contended by some other long-running but
-     otherwise OK job.
+  #3 Perform 1 and 2 with an sbRIO that is contended by some other long-running
+     but otherwise OK job.
 
 In all cases, the job results--whether successful or timed out--should be
 returned to the client with no uncaught errors by the client or server. Job
