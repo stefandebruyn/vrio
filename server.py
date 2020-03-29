@@ -399,7 +399,7 @@ class JobHandlerThread(threading.Thread):
 
 
 def ping_sbrios():
-    """Gets a list of all sbRIO resources that respond to a ping.
+    """Gets a list of all online sbRIOs by pinging each in sequence.
 
     Return
     ------
@@ -414,6 +414,7 @@ def ping_sbrios():
         if "100% packet loss" not in output:
             online.append(rio)
     return online
+
 
 if __name__ == "__main__":
     # Validate usage.
