@@ -48,6 +48,19 @@ class UnknownSbrioError(Exception):
     pass
 
 
+class NoSbriosAvailableError(Exception):
+    """Used by the server to handle a request for "any" sbRIO when none are
+    pingable.
+    """
+    pass
+
+class AnySbrioDisallowedError(Exception):
+    """Used by the server to handle "any" requests when such requests are not
+    allowed.
+    """
+    pass
+
+
 class JobRejectedError(Exception):
     """Used by client to handle unhappy response from server.
     """
@@ -82,7 +95,7 @@ class JobRunError(Exception):
         return self.msg
 
 
-class SbRio():
+class Sbrio():
     """Resource object for a single sbRIO.
     """
     def __init__(self, id, ip):
@@ -167,7 +180,7 @@ def load_sbrio_info():
         idx = 0
         for line in f.readlines():
             ip = line.strip()
-            rio = SbRio(idx, ip)
+            rio = Sbrio(idx, ip)
             id_to_sbrio[idx] = rio
             ip_to_sbrio[ip] =  rio
             idx += 1

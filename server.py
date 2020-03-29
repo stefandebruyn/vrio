@@ -37,6 +37,7 @@ import paramiko
 import scp
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import vrio
@@ -48,8 +49,39 @@ job_counter = 0
 # Lock for synchronizing edits to global job counter.
 job_counter_lock = threading.Lock()
 
+# Global list of online sbRIOs, updated periodically by SbrioPingThread.
+online_sbrios = []
 
-class JobHandler(threading.Thread):
+# Lock for synchronizing access to online sbRIO list.
+online_sbrios_lock = threading.Lock()
+
+# Whether or not to allow jobs run on "any" sbRIO. This requires the ping thread
+# be periodically pinging all sbRIOs, which may be unattractive for reasons of
+# scheduling determinism (on the sbRIOs--have to keep servicing ping requests).
+allow_any_sbrio = False
+
+
+class SbrioPingThread(threading.Thread):
+    """Thread that periodically updates the global list of online sbRIOs.
+    """
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+    def run(self):
+        """Updates the global list of online sbRIOs as fast as possible. Most of
+        the time is spent pinging. Each ping has a 1 second timeout, so in the
+        worst case, the list is updated ever n seconds, where n is the number of
+        sbRIOs.
+        """
+        global online_sbrios, online_sbrios_lock
+        while True:
+            ping = ping_sbrios()
+            online_sbrios_lock.acquire()
+            online_sbrios = ping
+            online_sbrios_lock.release()
+
+
+class JobHandlerThread(threading.Thread):
     """Handling thread for a client job request.
     """
     def __init__(self, addr, sock, pw):
@@ -107,7 +139,7 @@ class JobHandler(threading.Thread):
             # Run job.
             cmd = job_bin_path + ' ' + ' '.join(cmdline_args)
             stdin, stdout, stderr = ssh.exec_command(
-                cmd, timeout=vrio.SBRIO_JOB_TIMEOUT_S, get_pty=True)
+                cmd, timeout=vrio.SBRIO_JOB_TIMEOUT_S)
             b_out = stdout.read()
             b_err = stderr.read()
 
@@ -205,14 +237,28 @@ class JobHandler(threading.Thread):
                 self.sock.sendall(packet_job_deny)
                 raise vrio.UnknownSbrioError
 
-            # Look up the requested sbRIO resource. If any was requested,
-            # identify the one with the least load.
+            # Look up the requested sbRIO resource.
             sbrio = vrio.id_to_sbrio[bid]
             if sbrio.ip() == vrio.SBRIO_IP_ANY:
-                vrio.log(self.id, "Client asked for any sbRIO. Identifying least load...")
-                # Create list of all sbRIOs.
-                sbrio_opts = [sb for sb in vrio.id_to_sbrio.values() if \
-                              sb.ip() not in vrio.special_sbrio_ips]
+                # Client asked for any sbRIO. Verify this is allowed.
+                if not allow_any_sbrio:
+                    packet_err = vrio.pack(
+                        bytes("\"Any\" requests are currently disabled. Send a specific IP!",
+                              'utf-8'))
+                    self.sock.sendall(packet_err)
+                    raise vrio.AnySbrioDisallowedError()
+                # Looks OK.
+                vrio.log(self.id, "Client asked for any sbRIO. Pinging online sbRIOs...")
+                global online_sbrios, online_sbrios_lock
+                online_sbrios_lock.acquire()
+                sbrio_opts = online_sbrios
+                online_sbrios_lock.release()
+                # If none are available, report that.
+                if len(sbrio_opts) == 0:
+                    packet_err = vrio.pack(
+                        bytes("No sbRIOs are currently online.", 'utf-8'))
+                    self.sock.sendall(packet_err)
+                    raise vrio.NoSbriosAvailableError()
                 # Identify least load, where load = jobs queued + in use.
                 best_sbrio = None
                 best_sbrio_load = -1
@@ -316,6 +362,14 @@ class JobHandler(threading.Thread):
             # Client requested an unknown sbRIO.
             vrio.log(self.id, "Client sent an invalid sbRIO ID. Aborting...")
 
+        except vrio.NoSbriosAvailableError:
+            # Client asked for "any" sbRIO, but none were online.
+            vrio.log(self.id, "No sbRIOs are online. Aborting...")
+
+        except vrio.AnySbrioDisallowedError:
+            # Client asked for "any" sbRIO but that's not allowed.
+            vrio.log(self.id, "Request for \"any\" sbRIO rejected.")
+
         except vrio.JobScpError as e:
             # Error occurred while SCPing job binary to target.
             vrio.log(self.id, "Failed to SCP job binary: %s" % str(e))
@@ -344,6 +398,23 @@ class JobHandler(threading.Thread):
         vrio.log(self.id, "Connection closed.")
 
 
+def ping_sbrios():
+    """Gets a list of all sbRIO resources that respond to a ping.
+
+    Return
+    ------
+    list
+        list of online vrio.Sbrios
+    """
+    online = []
+    for rio in vrio.id_to_sbrio.values():
+        if rio.ip() in vrio.special_sbrio_ips: continue
+        output = subprocess.run(("ping -c 1 -W 1 %s" % rio.ip()).split(' '),
+                                stdout=subprocess.PIPE).stdout.decode('utf-8')
+        if "100% packet loss" not in output:
+            online.append(rio)
+    return online
+
 if __name__ == "__main__":
     # Validate usage.
     if len(sys.argv) != 3:
@@ -367,10 +438,16 @@ if __name__ == "__main__":
     sock.listen(1)
     vrio.log("main", "Opened server on %s:%s. Listening..." % server_addr)
 
+    if allow_any_sbrio:
+        # Start sbRIO ping thread.
+        ping_thread = SbrioPingThread()
+        ping_thread.start()
+        vrio.log("main", "Started sbRIO ping thread.")
+
     # Wait for client connections.
     while True:
         # Dispatch handler thread to service request.
         conn, client_addr = sock.accept()
         conn.settimeout(60)
-        handler = JobHandler(client_addr, conn, sbrio_password)
+        handler = JobHandlerThread(client_addr, conn, sbrio_password)
         handler.start()

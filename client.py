@@ -8,7 +8,7 @@ server address.
 Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [BINARY ARGS]
 
 A value of "any" for sbRIO IP will target the sbRIO that is least contended.
-This requires that all sbRIOs be online.
+This may be disabled server-side to limit interrupts to sbRIOs.
 """
 import os
 import socket
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Validate requested sbRIO.
     if sys.argv[1] not in vrio.ip_to_sbrio:
         print("Unknown sbRIO %s" % sys.argv[1] + ". Valid arguments:")
-        for ip in vrio.ip_to_sbrio.keys():
+        for ip in sorted(vrio.ip_to_sbrio.keys()):
             print(ip)
         exit()
     sbrio_id = vrio.ip_to_sbrio[sys.argv[1]].id()
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         status_plaintext = packet_status.decode('utf-8')
 
         if "job(s) queued" not in status_plaintext:  # Lazy rejection checking.
-            print(status_plaintext)
+            print("Job rejected by server: " + status_plaintext)
             raise vrio.JobRejectedError()
         
         # Acknowledge receipt of sbRIO status and wait for job results. This
