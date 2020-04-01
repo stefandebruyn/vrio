@@ -207,27 +207,6 @@ def pack(data):
     return b_size + data
 
 
-def pad(b, k):
-    """Adds 0 bytes to the end of b until it is of length k. Operates on the
-    original object.
-
-    Parameters
-    ----------
-    b : bytes
-        byte sequence to pad
-    k: int
-        target len in bytes
-
-    Return
-    ------
-    bytes
-        parameter b after padding is completed
-    """
-    while len(b) < k:
-        b += b'\0'
-    return b
-
-
 def recv_payload(sock):
     """Receives a complete packet from a socket.
 
