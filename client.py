@@ -10,6 +10,7 @@ Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [BINARY ARGS]
 A value of "any" for sbRIO IP will target the sbRIO that is least contended.
 This may be disabled server-side to limit interrupts to sbRIOs.
 """
+from Crypto.Cipher import AES
 import os
 import socket
 import struct
@@ -19,7 +20,7 @@ import vrio
 
 if __name__ == "__main__":
     # Validate usage.
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 4:
         print("Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [BINARY ARGS]")
         exit()
 
@@ -31,6 +32,19 @@ if __name__ == "__main__":
     with open(vrio.SERVER_ADDR_FNAME, "r") as f:
         chunks = f.readlines()[0].strip().split(':')
         server_addr = chunks[0], int(chunks[1])
+
+    # Get encryption key from file.
+    if not os.path.exists(vrio.KEY_FNAME):
+        print("Could not find key file")
+        exit()
+    key, iv = None, None
+    with open(vrio.KEY_FNAME, 'rb') as f:
+        full = f.read().strip()
+        if len(full) != 32:
+            print("Key was of incorrect length %s bytes" % len(full))
+            exit()
+        key = full[:16]
+        iv = full[16:] 
 
     # Validate requested sbRIO.
     if sys.argv[1] not in vrio.ip_to_sbrio:
@@ -55,13 +69,17 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print("Connecting to VRIO server at %s:%s..." % server_addr)
     sock.connect(server_addr)
+    print("Connected to server. Building job request...")
 
     try:
-        # Build and send job request packet.
-        print("Connected to server. Building job request...")
-        b_bid = struct.pack("I", sbrio_id)
+        # Encrypt job binary.
+        aes = AES.new(key, AES.MODE_CBC, iv)
         b_job = open(job_binary_path, "rb").read()
-        packet_req = vrio.pack(b_bid + b_job)
+        b_job_enc = aes.encrypt(b_job)
+
+        # Build and send job request packet.
+        b_bid = struct.pack("I", sbrio_id)
+        packet_req = vrio.pack(b_bid + b_job_enc)
         print("Done. Sending job request...")
         sock.sendall(packet_req)
 
@@ -77,7 +95,7 @@ if __name__ == "__main__":
         # packet contains the client's local username (for logging) and cmdline
         # args for the binary.
         subpacket_user = vrio.pack(bytes(os.getlogin(), 'utf-8'))
-        cmdline_args = ','.join(sys.argv[4:])
+        cmdline_args = ','.join(sys.argv[3:])
         subpacket_cmdline = vrio.pack(bytes(cmdline_args, 'utf-8'))
         packet_ack = vrio.pack(subpacket_user + subpacket_cmdline)
         sock.sendall(packet_ack)

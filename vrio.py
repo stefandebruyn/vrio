@@ -9,6 +9,9 @@ import threading
 # File created by user with VRIO server address.
 SERVER_ADDR_FNAME = 'serveraddr.txt'
 
+# File containing encryption key.
+KEY_FNAME = 'key.txt'
+
 # sbRIO login username. Password is passed to server by cmdline.
 SBRIO_USERNAME = 'stefan'  # 'admin'
 
@@ -202,6 +205,27 @@ def pack(data):
     data_size = len(data)
     b_size = struct.pack("I", data_size)
     return b_size + data
+
+
+def pad(b, k):
+    """Adds 0 bytes to the end of b until it is of length k. Operates on the
+    original object.
+
+    Parameters
+    ----------
+    b : bytes
+        byte sequence to pad
+    k: int
+        target len in bytes
+
+    Return
+    ------
+    bytes
+        parameter b after padding is completed
+    """
+    while len(b) < k:
+        b += b'\0'
+    return b
 
 
 def recv_payload(sock):

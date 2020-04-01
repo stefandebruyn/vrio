@@ -32,6 +32,7 @@ Other notes:
     request a pseudo-terminal from the remote target seems like it would fix
     this, but it doesn't.
 """
+from Crypto.Cipher import AES
 import os
 import paramiko
 import scp
@@ -59,6 +60,10 @@ online_sbrios_lock = threading.Lock()
 # be periodically pinging all sbRIOs, which may be unattractive for reasons of
 # scheduling determinism (on the sbRIOs--have to keep servicing ping requests).
 allow_any_sbrio = False
+
+# Key and VI for decrypting incoming binaries. Read from disk at entry.
+aes_key = None
+aes_vi = None
 
 
 class SbrioPingThread(threading.Thread):
@@ -299,9 +304,17 @@ class JobHandlerThread(threading.Thread):
             vrio.log(self.id, "Parsed cmdline args: [%s]" % \
                               ', '.join(cmdline_args))
 
-            # Save job binary.
+            # Decrypt job binary.
+            vrio.log(self.id, "Decrypting job binary...")
+            b_job_enc = packet[4:]
+            global aes_key, aes_vi
+            aes = AES.new(aes_key, AES.MODE_CBC, aes_iv)
+            b_job = aes.decrypt(b_job_enc)
+            vrio.log(self.id, "Finished decrypting job binary.")
+
+            # Save decrypted job binary to disk for later SCP.
             job_bin = open(job_bin_fname, "wb")
-            job_bin.write(packet[4:])
+            job_bin.write(b_job)
             job_bin_qpath = job_bin.name
             job_bin.close()
 
@@ -421,6 +434,13 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python3 server.py [SBRIO PASSWORD] [SERVER IP]")
         exit()
+
+    # Read encryption key from file.
+    with open(vrio.KEY_FNAME, 'rb') as f:
+        full = f.read().strip()
+        assert len(full) == 32
+        aes_key = full[:16]
+        aes_iv = full[16:] 
 
     # Parse cmdline arguments.
     sbrio_password = sys.argv[1]
