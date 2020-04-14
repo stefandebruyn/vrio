@@ -11,6 +11,7 @@ A value of "any" for sbRIO IP will target the sbRIO that is least contended.
 This may be disabled server-side to limit interrupts to sbRIOs.
 """
 from Crypto.Cipher import AES
+import hashlib
 import os
 import socket
 import struct
@@ -77,9 +78,14 @@ if __name__ == "__main__":
         b_job = open(job_binary_path, "rb").read()
         b_job_enc = aes.encrypt(b_job)
 
+        # Hash encryption key to be used as magic authentication number.
+        hasher = hashlib.sha512()
+        hasher.update(key + iv)
+        b_magic = hasher.digest()
+
         # Build and send job request packet.
         b_bid = struct.pack("I", sbrio_id)
-        packet_req = vrio.pack(b_bid + b_job_enc)
+        packet_req = vrio.pack(b_magic + b_bid + b_job_enc)
         print("Done. Sending job request...")
         sock.sendall(packet_req)
 

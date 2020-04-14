@@ -51,6 +51,12 @@ class UnknownSbrioError(Exception):
     pass
 
 
+class BadMagicError(Exception):
+    """Used by server to handle magic number mismatch in job query packets.
+    """
+    pass
+
+
 class NoSbriosAvailableError(Exception):
     """Used by the server to handle a request for "any" sbRIO when none are
     pingable.

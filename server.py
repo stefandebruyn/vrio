@@ -33,6 +33,7 @@ Other notes:
     this, but it doesn't.
 """
 from Crypto.Cipher import AES
+import hashlib
 import os
 import paramiko
 import scp
@@ -232,6 +233,20 @@ class JobHandlerThread(threading.Thread):
                      ("%s:%s" % self.addr))
             packet = vrio.recv_payload(self.sock)
 
+            # Verify magic number integrity.
+            global aes_key, aes_vi
+            hasher = hashlib.sha512()
+            hasher.update(aes_key + aes_iv)
+            b_magic = hasher.digest()
+            b_magic_recv = packet[:512]
+            if b_magic != b_magic_recv:
+                packet_job_deny = vrio.pack(bytes("Magic number mismatch.",
+                                                  'utf-8'))
+                self.sock.sendall(packet_job_deny)
+                raise vrio.BadMagicError
+            # Slice packet b/c I'm too lazy to update indices.
+            packet = packet[512:]
+
             # Unpack target sbRIO ID.
             bid = struct.unpack("I", packet[:4])[0]
 
@@ -307,7 +322,6 @@ class JobHandlerThread(threading.Thread):
             # Decrypt job binary.
             vrio.log(self.id, "Decrypting job binary...")
             b_job_enc = packet[4:]
-            global aes_key, aes_vi
             aes = AES.new(aes_key, AES.MODE_CBC, aes_iv)
             b_job = aes.decrypt(b_job_enc)
             vrio.log(self.id, "Finished decrypting job binary.")
@@ -370,6 +384,10 @@ class JobHandlerThread(threading.Thread):
             packet_results = vrio.pack(b_out + b_err)
             self.sock.sendall(packet_results)
             vrio.log(self.id, "Job results sent to client.")
+
+        except vrio.BadMagicError:
+            # Client job request packet had wrong magic number.
+            vrio.log(self.id, "Client sent wrong magic number. Aborting...")
 
         except vrio.UnknownSbrioError:
             # Client requested an unknown sbRIO.
