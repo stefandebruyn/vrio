@@ -238,14 +238,16 @@ class JobHandlerThread(threading.Thread):
             hasher = hashlib.sha512()
             hasher.update(aes_key + aes_iv)
             b_magic = hasher.digest()
-            b_magic_recv = packet[:512]
+            b_magic_recv = packet[:64]
+            print(len(b_magic))
+            print(len(b_magic_recv))
             if b_magic != b_magic_recv:
                 packet_job_deny = vrio.pack(bytes("Magic number mismatch.",
                                                   'utf-8'))
                 self.sock.sendall(packet_job_deny)
                 raise vrio.BadMagicError
             # Slice packet b/c I'm too lazy to update indices.
-            packet = packet[512:]
+            packet = packet[64:]
 
             # Unpack target sbRIO ID.
             bid = struct.unpack("I", packet[:4])[0]

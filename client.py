@@ -21,7 +21,7 @@ import vrio
 
 if __name__ == "__main__":
     # Validate usage.
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 3:
         print("Usage: python3 client.py [SBRIO IP] [PATH TO BINARY] [BINARY ARGS]")
         exit()
 
@@ -82,6 +82,7 @@ if __name__ == "__main__":
         hasher = hashlib.sha512()
         hasher.update(key + iv)
         b_magic = hasher.digest()
+        print(len(b_magic))
 
         # Build and send job request packet.
         b_bid = struct.pack("I", sbrio_id)
