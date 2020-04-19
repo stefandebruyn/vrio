@@ -82,7 +82,6 @@ if __name__ == "__main__":
         hasher = hashlib.sha512()
         hasher.update(key + iv)
         b_magic = hasher.digest()
-        print(len(b_magic))
 
         # Build and send job request packet.
         b_bid = struct.pack("I", sbrio_id)
