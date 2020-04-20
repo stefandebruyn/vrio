@@ -13,13 +13,13 @@ SERVER_ADDR_FNAME = 'serveraddr.txt'
 KEY_FNAME = 'key.txt'
 
 # sbRIO login username. Password is passed to server by cmdline.
-SBRIO_USERNAME = 'stefan'  # 'admin'
+SBRIO_USERNAME = 'admin'
 
 # Parent folder on sbRIO of binaries.
-SBRIO_SCP_DEST = '/home/stefan/'  # '/home/admin/FlightSoftware'
+SBRIO_SCP_DEST = '/home/admin/FlightSoftware'
 
 # Maximum runtime of a job in seconds.
-SBRIO_JOB_TIMEOUT_S = 60
+SBRIO_JOB_TIMEOUT_S = 180
 
 # Job binary extension.
 SBRIO_JOB_BIN_EXT = '.job'
@@ -237,7 +237,7 @@ def recv_payload(sock):
 
     # Continue RXing until receipt of entire payload.
     while len(packet) - 4 < payload_size_bytes:
-        packet += sock.recv(16)
+        packet += sock.recv(4096)
 
     # RX complete. Return payload only.
     return packet[4:]

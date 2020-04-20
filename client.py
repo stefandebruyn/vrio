@@ -76,18 +76,22 @@ if __name__ == "__main__":
         # Encrypt job binary.
         aes = AES.new(key, AES.MODE_CBC, iv)
         b_job = open(job_binary_path, "rb").read()
+        while len(b_job) % 16 != 0: b_job += b'\0'  # Pad to 16 byte boundary
         b_job_enc = aes.encrypt(b_job)
 
         # Hash encryption key to be used as magic authentication number.
         hasher = hashlib.sha512()
         hasher.update(key + iv)
         b_magic = hasher.digest()
+        print(b_magic)
 
         # Build and send job request packet.
         b_bid = struct.pack("I", sbrio_id)
         packet_req = vrio.pack(b_magic + b_bid + b_job_enc)
+        print(len(packet_req))
         print("Done. Sending job request...")
         sock.sendall(packet_req)
+        print("done")
 
         # Receive status on requested sbRIO from server.
         packet_status = vrio.recv_payload(sock)
