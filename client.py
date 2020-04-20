@@ -83,15 +83,12 @@ if __name__ == "__main__":
         hasher = hashlib.sha512()
         hasher.update(key + iv)
         b_magic = hasher.digest()
-        print(b_magic)
 
         # Build and send job request packet.
         b_bid = struct.pack("I", sbrio_id)
         packet_req = vrio.pack(b_magic + b_bid + b_job_enc)
-        print(len(packet_req))
-        print("Done. Sending job request...")
         sock.sendall(packet_req)
-        print("done")
+        print("Job request sent.")
 
         # Receive status on requested sbRIO from server.
         packet_status = vrio.recv_payload(sock)

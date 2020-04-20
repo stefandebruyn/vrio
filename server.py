@@ -239,8 +239,6 @@ class JobHandlerThread(threading.Thread):
             hasher.update(aes_key + aes_iv)
             b_magic = hasher.digest()
             b_magic_recv = packet[:64]
-            print(b_magic)
-            print(b_magic_recv)
             if b_magic != b_magic_recv:
                 packet_job_deny = vrio.pack(bytes("Magic number mismatch.",
                                                   'utf-8'))
