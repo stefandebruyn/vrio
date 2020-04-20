@@ -166,7 +166,7 @@ class JobHandlerThread(threading.Thread):
         pid = None
         for line in grep.split('\n'):
             if self.id in line and "grep" not in line:
-                pid = line.split()[1]  # PID printed in 2nd col.
+                pid = line.split()[0]  # PID printed in 1st column on NILRT.
                 vrio.log(self.id, "Identified job still running with PID %s. Attempting to kill..." % \
                                     pid)
                 break
