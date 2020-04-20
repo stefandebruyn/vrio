@@ -410,11 +410,14 @@ class JobHandlerThread(threading.Thread):
             vrio.log(self.id, "Failed to run job binary: %s" % str(e))
 
         except Exception as e:
-            # Something else went wrong.
-            vrio.log(self.id, "Failed to process job: %s" % str(e))
-            packet_err = vrio.pack(bytes("Failed to process job. Go yell at Stefan.",
-                                         'utf-8'))
-            self.sock.sendall(packet_err)
+            try:
+                # Something else went wrong.
+                vrio.log(self.id, "Failed to process job: %s" % str(e))
+                packet_err = vrio.pack(bytes("Failed to process job. Go yell at Stefan.",
+                                            'utf-8'))
+                self.sock.sendall(packet_err)
+            except Exception:
+                vrio.log(self.id, "Failed to respond to client.")
 
         # Clean up local job binary if one was saved.
         try:
@@ -425,8 +428,11 @@ class JobHandlerThread(threading.Thread):
                         % job_bin_name)
 
         # Close connection.
-        self.sock.close()
-        vrio.log(self.id, "Connection closed.")
+        try:
+            self.sock.close()
+            vrio.log(self.id, "Connection closed.")
+        except Exception:
+            vrio.log(self.id, "Failed to close socket.")
 
 
 def ping_sbrios():
