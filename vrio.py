@@ -343,6 +343,9 @@ def load_job_counts():
             user_job_counts[user] = count
 
 
+# Chrdir to file location so relative paths work.
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
 # Load sbRIO information once module loads.
 load_sbrio_info()
 
