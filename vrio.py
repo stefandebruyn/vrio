@@ -2,6 +2,7 @@
 """
 import datetime
 import os
+import shutil
 import struct
 import threading
 
@@ -160,7 +161,7 @@ class Sbrio():
             if a job is currently running on the sbRIO
         """
         return self._job_lock.locked()
-    
+
     def acquire(self):
         """Used by a job handling thread to acquire an sbRIO. Blocks until
         the sbRIO is not busy.
@@ -220,7 +221,7 @@ def recv_payload(sock):
     ----------
     sock : socket.socket
         recv socket
-    
+
     Return
     ------
     bytes
@@ -253,9 +254,7 @@ def printctr(str, pad=' '):
     pad : str
         character to pad left and right of centered string with
     """
-    rows, cols = os.popen('stty size', 'r').read().split()
-    rows = int(rows)
-    cols = int(cols)
+    cols, rows = shutil.get_terminal_size((80, 20))
 
     print_lock.acquire()
 
